@@ -7,12 +7,12 @@ def processData(data: pd.DataFrame):
     toCategorical(data, ['bedrooms', 'livingRooms'])
     dropMissing(data)
     fillMissing(data)
-    encodeCategorical(data)
-    normalizeNumerical(data)
     visualizeCorrelations(data)
-    print(data.head())
-    print(data.info())
-    print(toMap.head())
+    normalizeNumerical(data)
+    data = encodeCategorical(data)
+    # print(data.head())
+    # print(data.info())
+    return data, toMap
 
 def toCategorical(data: pd.DataFrame, columns):
     for col in columns:
@@ -34,7 +34,7 @@ def dropMissing(data: pd.DataFrame, threshold = 0.15):
 
 def encodeCategorical(data: pd.DataFrame):
     categorical = data.dtypes == 'object'
-    data = pd.get_dummies(data, columns = categorical[categorical].index)
+    return pd.get_dummies(data, columns = categorical[categorical].index)
 
 def normalizeNumerical(data: pd.DataFrame, std = True):
     numerical = data.dtypes == 'float64'
@@ -44,14 +44,12 @@ def normalizeNumerical(data: pd.DataFrame, std = True):
     else:
         data[numerical[numerical].index] = (toNormalize-toNormalize.min())/(toNormalize.max()-toNormalize.min())
 
+def printUniqueCategoricals(data):
+        for col in data.select_dtypes(include='object').columns:
+            unique_vals = data[col].unique()
+            print(f"Column: {col}")
+            print(unique_vals)
+            print("-" * 40)
+
 def visualizeCorrelations(data: pd.DataFrame):
     seaborn.heatmap(data.select_dtypes(include='float64').corr()).get_figure().savefig('heatmap.png', dpi=400)
-
-
-myData = pd.read_csv("data/kaggle_london_house_price_data.csv")
-# print(myData.head())
-# print(myData.shape)
-print(myData.columns.values)
-# print(myData.dtypes)
-# print(myData.isna().sum()/ my_data.shape[0])
-processData(myData)
