@@ -1,4 +1,4 @@
-import processing, clustering
+import processing, clusterMapping
 import pandas as pd
 
 if __name__ == "__main__":
@@ -9,6 +9,4 @@ if __name__ == "__main__":
     # print(myData.dtypes)
     # print(myData.isna().sum()/ my_data.shape[0])
     data, map = processing.processData(myData)
-
-    clustered = clustering.applyPCA(data, 2)
-    print(clustered)
+    clusterMapping.pcaCompare(data, map, stop = 10)
