@@ -24,9 +24,10 @@ def applyPCA(data: pd.DataFrame, numComponents, idColName="newId"):
 
     return pd.concat([ids, pcaDf], axis=1)
 
-def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, kRange: range = range(1, 16)):
+def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, kRange: range = range(1, 16, 2), step = 10):
     
     while data.shape[1] > stop:
+        print(data.head())
         inertias = []
         for numClusters in kRange:
             kmeans = KMeans(n_clusters=numClusters, random_state=42).fit(data.iloc[:, 1:])
@@ -35,7 +36,7 @@ def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, kRange:
 
         graphInertias(kRange, inertias, data.shape[1])
 
-        data = applyPCA(data, data.shape[1] - 2)
+        data = applyPCA(data, data.shape[1] - step -1)
 
 def graphInertias(clusterRange, inertias, numColumns):
     plt.figure() 
@@ -46,7 +47,7 @@ def graphInertias(clusterRange, inertias, numColumns):
     plt.savefig(f'inertias\\{numColumns}_cols.png')
 
 def mapCluster(labelledData: pd.DataFrame, numClusters: int, numColumns: int):
-    print(labelledData.head())
+    # print(labelledData.head())
     print(labelledData['clusterLabels'].value_counts())
 
     labelledData = labelledData.sample(n=1000)
@@ -58,10 +59,14 @@ def mapCluster(labelledData: pd.DataFrame, numClusters: int, numColumns: int):
         popupInfo = f"""
             <b>{row['fullAddress']}</b><br>
             Cluster: {row['clusterLabels']}<br>
+            Bedrooms: {row['bedrooms']}<br>
+            Bathrooms: {row['bathrooms']}<br>
+            Square Footage: {row['floorAreaSqM']}<br>
+            Sales Price Estimate: {row['saleEstimate_currentPrice']}<br>
         """
         folium.Marker(
             location=[row['latitude'], row['longitude']],
             popup=popupInfo,
             icon=folium.Icon(color=clusterColours[row['clusterLabels'] % len(clusterColours)])
             ).add_to(m)
-    m.save(f'folium_maps\\{numColumns}_columns_{numClusters}_clusters_map.html')
+    m.save(f'folium_maps\\pca_clustering\\{numColumns}_columns_{numClusters}_clusters_map.html')

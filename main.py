@@ -1,12 +1,17 @@
-import processing, clusterMapping
+import processing, clusterMapping, anomalyDetection
 import pandas as pd
 
+def generateClusters(data: pd.DataFrame):
+    processed, info = processing.processData(data)
+    clusterMapping.pcaCompare(processed, info, stop = 10)
+
+def anomalyDetect(data: pd.DataFrame):
+    processed, info = processing.processData(data)
+    # anomalyDetection.isolationForest(processed, info)
+    anomalyDetection.randomForest(processed, info)
+
 if __name__ == "__main__":
-    myData = pd.read_csv("data/kaggle_london_house_price_data.csv")
-    # print(myData.head())
-    # print(myData.shape)
-    print(myData.columns.values)
-    # print(myData.dtypes)
-    # print(myData.isna().sum()/ my_data.shape[0])
-    data, map = processing.processData(myData)
-    clusterMapping.pcaCompare(data, map, stop = 10)
+    data = pd.read_csv("data/kaggle_london_house_price_data.csv")
+
+    # generateClusters(data)
+    anomalyDetect(data)

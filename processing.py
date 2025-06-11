@@ -2,7 +2,7 @@ import pandas as pd, numpy as np, seaborn
 
 def processData(data: pd.DataFrame):
     data.insert(0, 'newId', range(len(data)))
-    toMap = data[['newId', 'fullAddress', 'latitude', 'longitude']]
+    toMap = data[['newId', 'fullAddress', 'latitude', 'longitude', 'bedrooms', 'bathrooms', 'floorAreaSqM', 'saleEstimate_currentPrice', 'rentEstimate_currentPrice']]
     data.drop(columns=["fullAddress", "postcode", "country", "outcode", "saleEstimate_valueChange.saleDate", "history_date"], inplace=True)
     toCategorical(data, ['bedrooms', 'livingRooms'])
     dropMissing(data)
