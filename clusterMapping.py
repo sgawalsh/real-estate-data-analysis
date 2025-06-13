@@ -27,7 +27,7 @@ def applyPCA(data: pd.DataFrame, numComponents, idColName="newId"):
 def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, kRange: range = range(1, 16, 2), step = 10):
     
     while data.shape[1] > stop:
-        print(data.head())
+        # print(data.head())
         inertias = []
         for numClusters in kRange:
             kmeans = KMeans(n_clusters=numClusters, random_state=42).fit(data.iloc[:, 1:])
@@ -46,9 +46,18 @@ def graphInertias(clusterRange, inertias, numColumns):
     plt.title('Elbow Method')
     plt.savefig(f'inertias\\{numColumns}_cols.png')
 
-def mapCluster(labelledData: pd.DataFrame, numClusters: int, numColumns: int):
-    # print(labelledData.head())
-    print(labelledData['clusterLabels'].value_counts())
+def mapCluster(labelledData: pd.DataFrame, numClusters: int, numColumns: int, verbal: bool = True):
+    if verbal:
+        # print(labelledData.head())
+        labels = sorted(labelledData['clusterLabels'].unique())
+        print(f"{len(labels)} Clusters:")
+        labelCounts = labelledData['clusterLabels'].value_counts()
+        summaryDF = pd.DataFrame(columns=['Count', 'Price', 'Sq. Ft.', 'Bedrooms', 'Bathrooms'])
+        for i, label in enumerate(labels):
+            clusterDf = labelledData[labelledData['clusterLabels'] == label]
+            # print(f"Cluster {label} - Count: {labelCounts[label]} Price: {clusterDf['saleEstimate_currentPrice'].mean():,.0f} - Sq. Ft. {clusterDf['floorAreaSqM'].mean():.0f} - Bedrooms: {clusterDf['bedrooms'].mean():.2f} - Bathrooms: {clusterDf['bathrooms'].mean():.2f}")
+            summaryDF.loc[i] = [format(labelCounts[label], ","), format(round(clusterDf['saleEstimate_currentPrice'].mean()), ","), round(clusterDf['floorAreaSqM'].mean()), round(clusterDf['bedrooms'].mean(), 2), round(clusterDf['bathrooms'].mean(), 2)]
+        print(summaryDF)
 
     labelledData = labelledData.sample(n=1000)
     mean_lat = labelledData['latitude'].mean()
