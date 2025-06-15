@@ -2,3 +2,4 @@ data/*
 __pycache__/*
 folium_maps/*
 inertias/*
+cluster_graphs/*
