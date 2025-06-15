@@ -2,10 +2,7 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 import pandas as pd, folium, matplotlib.pyplot as plt, math
 
-clusterColours = [
-    'red', 'blue', 'green', 'purple', 'orange',
-    'darkred', 'lightred', 'beige', 'darkblue', 'darkgreen'
-]
+clusterColours = ['lightblue', 'gray', 'blue', 'darkred', 'lightgreen', 'purple', 'red', 'green', 'lightred', 'white', 'darkblue', 'darkpurple', 'cadetblue', 'orange', 'pink']
 
 def applyPCA(data: pd.DataFrame, numComponents):
     pca = PCA(n_components=numComponents)
