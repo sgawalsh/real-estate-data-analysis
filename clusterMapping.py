@@ -4,6 +4,22 @@ import pandas as pd, folium, matplotlib.pyplot as plt, math
 
 clusterColours = ['lightblue', 'gray', 'blue', 'darkred', 'lightgreen', 'purple', 'red', 'green', 'lightred', 'white', 'darkblue', 'darkpurple', 'cadetblue', 'orange', 'pink']
 
+def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, step = 10, kRange: range = range(1, 16, 2)):
+    
+    while True:
+        inertias = []
+        for numClusters in kRange:
+            kmeans = KMeans(n_clusters=numClusters, random_state=0).fit(data)
+            inertias.append(kmeans.inertia_)
+            mapCluster(pd.concat([mapData, pd.Series(kmeans.labels_, name="clusterLabels")], axis=1), numClusters, data.shape[1])
+
+        graphInertias(kRange, inertias, data.shape[1])
+
+        if data.shape[1] - step <= stop:
+            break
+
+        data = applyPCA(data, data.shape[1] - step)
+
 def applyPCA(data: pd.DataFrame, numComponents):
     pca = PCA(n_components=numComponents)
     X_pca = pca.fit_transform(data)
@@ -19,22 +35,6 @@ def applyPCA(data: pd.DataFrame, numComponents):
 
     return pcaDf
 
-def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, kRange: range = range(1, 16, 2), step = 10):
-    
-    while True:
-        inertias = []
-        for numClusters in kRange:
-            kmeans = KMeans(n_clusters=numClusters, random_state=42).fit(data)
-            inertias.append(kmeans.inertia_)
-            mapCluster(pd.concat([mapData, pd.Series(kmeans.labels_, name="clusterLabels")], axis=1), numClusters, data.shape[1])
-
-        graphInertias(kRange, inertias, data.shape[1])
-
-        if data.shape[1] - step <= stop:
-            break
-
-        data = applyPCA(data, data.shape[1] - step)
-
 def graphInertias(clusterRange, inertias, numColumns):
     plt.figure()
     plt.plot(clusterRange, inertias, 'bo-')
@@ -42,6 +42,7 @@ def graphInertias(clusterRange, inertias, numColumns):
     plt.ylabel('Inertia')
     plt.title('Elbow Method')
     plt.savefig(f'inertias\\{numColumns}_cols.png')
+    plt.close()
 
 def mapCluster(labelledData: pd.DataFrame, numClusters: int, numColumns: int, verbal: bool = True):
     meanLat = labelledData['latitude'].mean()
@@ -127,6 +128,7 @@ def clusterCoordsFigure(labelledData: pd.DataFrame, clusterDF: pd.DataFrame, num
     plt.ylabel("Latitude Bias (km)")
     plt.grid(True)
     plt.savefig(f'cluster_graphs\\cluster_center_coords\\{numColumns}_columns_{numClusters}_clusters.png')
+    plt.close()
 
 def clusterPriceVsLongBias(clusterDF: pd.DataFrame, numColumns: int, numClusters: int):
     plt.figure()
@@ -137,3 +139,4 @@ def clusterPriceVsLongBias(clusterDF: pd.DataFrame, numColumns: int, numClusters
     plt.title("Property Price vs. Longitude Bias")
     plt.grid(True)
     plt.savefig(f'cluster_graphs\\price_vs_long_bias\\{numColumns}_columns_{numClusters}_clusters.png')
+    plt.close()

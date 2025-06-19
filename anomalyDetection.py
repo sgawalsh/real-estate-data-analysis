@@ -2,7 +2,7 @@ from sklearn.ensemble import IsolationForest, RandomForestRegressor
 import pandas as pd, folium
 
 def isolationForest(data: pd.DataFrame, info: pd.DataFrame, anomalyRate = 0.01):
-    iso = IsolationForest(contamination=anomalyRate, random_state=42)
+    iso = IsolationForest(contamination=anomalyRate, random_state=0)
     iso.fit(data)
     info['anomaly_score'] = iso.decision_function(data)
     info['is_anomaly'] = iso.predict(data)

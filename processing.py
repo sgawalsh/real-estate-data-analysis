@@ -1,13 +1,13 @@
 import pandas as pd, numpy as np, seaborn
 
 def processData(data: pd.DataFrame):
-    toMap = data[['fullAddress', 'latitude', 'longitude', 'bedrooms', 'bathrooms', 'floorAreaSqM', 'saleEstimate_currentPrice', 'rentEstimate_currentPrice']]
-    data.drop(columns=["fullAddress", "postcode", "country", "outcode", "saleEstimate_valueChange.saleDate", "history_date"], inplace=True)
+    toMap = data[['fullAddress', 'latitude', 'longitude', 'bedrooms', 'bathrooms', 'floorAreaSqM', 'saleEstimate_currentPrice', 'rentEstimate_currentPrice']] # save labelling information
+    data.drop(columns=["fullAddress", "postcode", "country", "outcode", "saleEstimate_valueChange.saleDate", "history_date"], inplace=True) # drop non-info columns
     toCategorical(data, ['bedrooms', 'livingRooms'])
     dropMissing(data)
     fillMissing(data)
-    visualizeCorrelations(data)
     normalizeNumerical(data)
+    visualizeCorrelations(data)
     data = encodeCategorical(data)
     # print(data.head())
     # print(data.info())
@@ -18,7 +18,7 @@ def toCategorical(data: pd.DataFrame, columns):
         data[col] = data[col].astype("object")
 
 def fillMissing(data: pd.DataFrame):
-    missing = data.isna().sum() / data.shape[0] > 0
+    missing = data.isna().sum() > 0
     for colName in missing[missing].index:
         if data[colName].dtype == 'object':
             data[colName] = data[colName].fillna("Unknown")
@@ -33,7 +33,7 @@ def dropMissing(data: pd.DataFrame, threshold = 0.15):
 
 def encodeCategorical(data: pd.DataFrame):
     categorical = data.dtypes == 'object'
-    return pd.get_dummies(data, columns = categorical[categorical].index)
+    return pd.get_dummies(data, columns = categorical[categorical].index, drop_first=True)
 
 def normalizeNumerical(data: pd.DataFrame, std = True):
     numerical = data.dtypes == 'float64'
