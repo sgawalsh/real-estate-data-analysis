@@ -3,7 +3,7 @@ import pandas as pd
 
 def generateClusters(data: pd.DataFrame):
     processed, info = processing.processData(data)
-    clusterMapping.pcaCompare(processed, info)
+    clusterMapping.pcaCompare(processed, info, kRange=range(1, 15), stop = 0, step=59)
 
 def anomalyDetect(data: pd.DataFrame):
     processed, info = processing.processData(data)

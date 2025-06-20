@@ -1,16 +1,20 @@
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
 import pandas as pd, folium, matplotlib.pyplot as plt, math
 
 clusterColours = ['lightblue', 'gray', 'blue', 'darkred', 'lightgreen', 'purple', 'red', 'green', 'lightred', 'white', 'darkblue', 'darkpurple', 'cadetblue', 'orange', 'pink']
 
-def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, step = 10, kRange: range = range(1, 16, 2)):
+def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, step = 10, kRange: range = range(1, 16, 2), comparePcaLabels = True):
     
+    labels = {}
     while True:
         inertias = []
+        labels[data.shape[1]] = []
         for numClusters in kRange:
             kmeans = KMeans(n_clusters=numClusters, random_state=0).fit(data)
             inertias.append(kmeans.inertia_)
+            labels[data.shape[1]].append(kmeans.labels_)
             mapCluster(pd.concat([mapData, pd.Series(kmeans.labels_, name="clusterLabels")], axis=1), numClusters, data.shape[1])
 
         graphInertias(kRange, inertias, data.shape[1])
@@ -19,6 +23,19 @@ def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, step = 
             break
 
         data = applyPCA(data, data.shape[1] - step)
+    
+    if comparePcaLabels:
+        labelDf = pd.DataFrame.from_dict(labels)
+        labelDf.index = kRange
+        keys = labelDf.columns
+        max, min = keys[0], keys[len(keys) - 1]
+        resultDf = pd.DataFrame(columns = [f'ari_{max}_{min}', f'nmi_{max}_{min}'], index=kRange)
+        for clusterCount, row in labelDf.iterrows():
+            resultDf.loc[clusterCount, f'ari_{max}_{min}'] = adjusted_rand_score(row[max], row[min])
+            resultDf.loc[clusterCount, f'nmi_{max}_{min}'] = normalized_mutual_info_score(row[max], row[min])
+
+        print(resultDf)
+        graphPcaSimilarity(resultDf, f"{max}_{min}")
 
 def applyPCA(data: pd.DataFrame, numComponents):
     pca = PCA(n_components=numComponents)
@@ -43,6 +60,21 @@ def graphInertias(clusterRange, inertias, numColumns):
     plt.title('Elbow Method')
     plt.savefig(f'inertias\\{numColumns}_cols.png')
     plt.close()
+
+def graphPcaSimilarity(pcaData: pd.DataFrame, title: str):
+
+    # Create two subplots and unpack the output array immediately
+    cols = pcaData.columns
+    f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+    f.suptitle(f"Cluster Information Retention Post PCA {title}")
+    ax1.plot(pcaData.index, pcaData[cols[0]], 'bo-')
+    ax1.set_ylabel('Adjusted Random Score')
+    ax2.plot(pcaData.index, pcaData[cols[1]], 'go-')
+    ax2.set_ylabel('Normalized Mutual Info')
+    plt.tight_layout()
+    plt.savefig(f'pca\\{title}.png')
+    plt.close()
+    
 
 def mapCluster(labelledData: pd.DataFrame, numClusters: int, numColumns: int, verbal: bool = True):
     meanLat = labelledData['latitude'].mean()
