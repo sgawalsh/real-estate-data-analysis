@@ -1,7 +1,9 @@
+from sklearn.cluster import KMeans, DBSCAN
 from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
-import pandas as pd, folium, matplotlib.pyplot as plt, math
+from sklearn.neighbors import NearestNeighbors
+from processing import visualizeCorrelations
+import pandas as pd, numpy as np, matplotlib.pyplot as plt, folium, math
 
 clusterColours = ['lightblue', 'gray', 'blue', 'darkred', 'lightgreen', 'purple', 'red', 'green', 'lightred', 'white', 'darkblue', 'darkpurple', 'cadetblue', 'orange', 'pink']
 
@@ -15,7 +17,7 @@ def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, step = 
             kmeans = KMeans(n_clusters=numClusters, random_state=0).fit(data)
             inertias.append(kmeans.inertia_)
             labels[data.shape[1]].append(kmeans.labels_)
-            mapCluster(pd.concat([mapData, pd.Series(kmeans.labels_, name="clusterLabels")], axis=1), numClusters, data.shape[1])
+            mapClusters(pd.concat([mapData, pd.Series(kmeans.labels_, name="clusterLabels")], axis=1), f"{data.shape[1]}_columns_{numClusters}_clusters")
 
         graphInertias(kRange, inertias, data.shape[1])
 
@@ -76,7 +78,7 @@ def graphPcaSimilarity(pcaData: pd.DataFrame, title: str):
     plt.close()
     
 
-def mapCluster(labelledData: pd.DataFrame, numClusters: int, numColumns: int, verbal: bool = True):
+def mapClusters(labelledData: pd.DataFrame, fileName: str, verbal: bool = True):
     meanLat = labelledData['latitude'].mean()
     meanLon = labelledData['longitude'].mean()
 
@@ -113,8 +115,8 @@ def mapCluster(labelledData: pd.DataFrame, numClusters: int, numColumns: int, ve
                 round(clusterSpread, 2),
                 ]
         print(summaryDF)
-        clusterCoordsFigure(labelledData, summaryDF, numColumns, numClusters)
-        clusterPriceVsLongBias(summaryDF, numColumns, numClusters)
+        clusterCoordsFigure(labelledData, summaryDF, fileName)
+        clusterPriceVsLongBias(summaryDF, fileName)
     
     labelledData = labelledData.sample(n=1000)
     for _, row in labelledData.iterrows():
@@ -141,7 +143,7 @@ def mapCluster(labelledData: pd.DataFrame, numClusters: int, numColumns: int, ve
 
     # Add layer control to toggle visibility
     folium.LayerControl(collapsed=False).add_to(foliumMap)
-    foliumMap.save(f'folium_maps\\pca_clustering\\{numColumns}_columns_{numClusters}_clusters_map.html')
+    foliumMap.save(f'folium_maps\\pca_clustering\\{fileName}_map.html')
 
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371  # Earth radius in kilometers
@@ -151,18 +153,20 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
-def clusterCoordsFigure(labelledData: pd.DataFrame, clusterDF: pd.DataFrame, numColumns: int, numClusters: int):
+def clusterCoordsFigure(labelledData: pd.DataFrame, clusterDF: pd.DataFrame, fileName: str, folderPath: str = 'cluster_graphs\\cluster_center_coords'):
     plt.figure()
-    plt.scatter(labelledData['longitude'], labelledData['latitude'], s=1, alpha=0.3)
+    for label in labelledData['clusterLabels'].unique():
+        toPlot = labelledData.loc[labelledData['clusterLabels'] == label]
+        plt.scatter(toPlot['longitude'], toPlot['latitude'], s=1, alpha=0.1)
     plt.scatter(clusterDF['Long'], clusterDF['Lat'], color='red')
     plt.title("Cluster Biases (km)")
     plt.xlabel("Longitude Bias (km)")
     plt.ylabel("Latitude Bias (km)")
     plt.grid(True)
-    plt.savefig(f'cluster_graphs\\cluster_center_coords\\{numColumns}_columns_{numClusters}_clusters.png')
+    plt.savefig(f'{folderPath}\\{fileName}.png')
     plt.close()
 
-def clusterPriceVsLongBias(clusterDF: pd.DataFrame, numColumns: int, numClusters: int):
+def clusterPriceVsLongBias(clusterDF: pd.DataFrame, fileName: str):
     plt.figure()
     plt.scatter(clusterDF['Long Bias'], clusterDF['Price'].str.replace(',', '').astype(float), c='blue')
     plt.axvline(x=0, color='gray', linestyle='--')
@@ -170,5 +174,69 @@ def clusterPriceVsLongBias(clusterDF: pd.DataFrame, numColumns: int, numClusters
     plt.ylabel("Average Price (£)")
     plt.title("Property Price vs. Longitude Bias")
     plt.grid(True)
-    plt.savefig(f'cluster_graphs\\price_vs_long_bias\\{numColumns}_columns_{numClusters}_clusters.png')
+    plt.savefig(f'cluster_graphs\\price_vs_long_bias\\{fileName}.png')
     plt.close()
+
+def dbScan(data: pd.DataFrame, mapData: pd.DataFrame, targetDimension: int = 5, neighbourCount: int = 5, findElbow: bool = True):
+    mapData, data = combineAndSample(mapData, data, 10000)
+    ogData = data.copy()
+    mapData.reset_index(drop=True, inplace=True)
+    data = applyPCA(data, targetDimension)
+
+    if findElbow:
+        findElbowFn(data, neighbourCount)
+
+    epsVals = [10000, 50000, 80000, 90000, 100000, 150000]
+    for e in epsVals:
+        db = DBSCAN(eps=e, min_samples=neighbourCount).fit(data)
+        labels = db.labels_
+        unique, counts = np.unique(labels, return_counts=True)
+        # print(e)
+        # print(np.asarray((unique, counts)).T)
+
+        mapClusters(pd.concat([mapData, pd.Series(labels, name='clusterLabels')], axis=1), f"{targetDimension}d_PCA_{e}_eps_{neighbourCount}_samples")
+    visualizeCorrelations(pd.concat([ogData, data], axis=1), f"{targetDimension}d_PCA_correlation")
+
+def dbScan2D(data: pd.DataFrame, mapData: pd.DataFrame):
+    mapData, data = combineAndSample(mapData, data, 10000)
+    data = applyPCA(data, 2)
+
+    # findElbowFn(data, 5)
+    eps, minSamples = 25000, 5
+
+    db = DBSCAN(eps=eps, min_samples = minSamples).fit(data)
+    labels = db.labels_
+    unique, counts = np.unique(labels, return_counts=True)
+    print(np.asarray((unique, counts)).T)
+
+    scatterData = pd.concat([data, pd.Series(labels, name='clusterLabels')], axis=1)
+    plt.figure()
+    for label in unique:
+        scatterLabel = scatterData.loc[scatterData['clusterLabels'] == label]
+        plt.scatter(scatterLabel.iloc[:, 0], scatterLabel.iloc[:, 1], label=label)
+    plt.title("2d PCA")
+    plt.legend()
+    plt.show()
+
+    mapClusters(pd.concat([mapData.reset_index(drop=True), pd.Series(labels, name='clusterLabels')], axis=1), f"2d_PCA_{eps}_eps_{minSamples}_samples")
+
+
+def combineAndSample(d1: pd.DataFrame, d2: pd.DataFrame, sampleNum: int):
+    numCols = d1.shape[1]
+    combined = pd.concat([d1, d2], axis=1)
+    combined = combined.sample(sampleNum)
+
+    return combined.iloc[:, :numCols], combined.iloc[:, numCols:]
+
+def findElbowFn(data: pd.DataFrame, neighbourCount: int):
+    neigh = NearestNeighbors(n_neighbors=neighbourCount)
+    nbrs = neigh.fit(data)
+    distances, _ = nbrs.kneighbors(data)
+    k_distances = np.sort(distances[:, neighbourCount - 1])
+    plt.figure()
+    plt.plot(k_distances)
+    plt.xlabel("Data Points sorted by distance")
+    plt.ylabel(f"{neighbourCount}-NN Distance")
+    plt.title("K-Distance Graph")
+    plt.grid(True)
+    plt.show()

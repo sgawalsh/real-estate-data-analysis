@@ -7,7 +7,7 @@ def processData(data: pd.DataFrame):
     dropMissing(data)
     fillMissing(data)
     normalizeNumerical(data)
-    visualizeCorrelations(data)
+    # visualizeCorrelations(data)
     data = encodeCategorical(data)
     # print(data.head())
     # print(data.info())
@@ -50,5 +50,5 @@ def printUniqueCategoricals(data):
             print(unique_vals)
             print("-" * 40)
 
-def visualizeCorrelations(data: pd.DataFrame):
-    seaborn.heatmap(data.select_dtypes(include='float64').corr()).get_figure().savefig('correlation_heatmap.png', dpi=400)
+def visualizeCorrelations(data: pd.DataFrame, fileName: str = 'correlation_heatmap'):
+    seaborn.heatmap(data.select_dtypes(include='float64').corr()).get_figure().savefig(f'{fileName}.png', dpi=400, bbox_inches="tight")
