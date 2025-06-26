@@ -190,7 +190,7 @@ def dbScan(data: pd.DataFrame, mapData: pd.DataFrame, targetDimension: int = 5, 
     for e in epsVals:
         db = DBSCAN(eps=e, min_samples=neighbourCount).fit(data)
         labels = db.labels_
-        unique, counts = np.unique(labels, return_counts=True)
+        # unique, counts = np.unique(labels, return_counts=True)
         # print(e)
         # print(np.asarray((unique, counts)).T)
 
@@ -220,6 +220,18 @@ def dbScan2D(data: pd.DataFrame, mapData: pd.DataFrame):
 
     mapClusters(pd.concat([mapData.reset_index(drop=True), pd.Series(labels, name='clusterLabels')], axis=1), f"2d_PCA_{eps}_eps_{minSamples}_samples")
 
+def compareDbScanKmeansLabels(data: pd.DataFrame, mapData: pd.DataFrame):
+    mapData, data = combineAndSample(mapData, data, 10000)
+
+    eps, minSamples = 75000, 5
+    dbLabels = DBSCAN(eps=eps, min_samples = minSamples).fit(data).labels_
+
+    numClusters = (len(np.unique(dbLabels)))
+    print(f"{numClusters} clusters")
+    kmLabels = KMeans(n_clusters=numClusters, random_state=0).fit(data).labels_
+
+    print(adjusted_rand_score(dbLabels, kmLabels))
+    print(normalized_mutual_info_score(dbLabels, kmLabels))
 
 def combineAndSample(d1: pd.DataFrame, d2: pd.DataFrame, sampleNum: int):
     numCols = d1.shape[1]

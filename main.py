@@ -17,3 +17,4 @@ if __name__ == "__main__":
     generateClusters(processed, info)
     # anomalyDetect(processed, info)
     # dbScan(processed, info)
+    # clusterMapping.compareDbScanKmeansLabels(processed, info)
