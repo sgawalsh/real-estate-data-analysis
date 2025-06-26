@@ -3,7 +3,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
 from sklearn.neighbors import NearestNeighbors
 from processing import visualizeCorrelations
-import pandas as pd, numpy as np, matplotlib.pyplot as plt, folium, math
+import pandas as pd, numpy as np, matplotlib.pyplot as plt, folium, math, seaborn
 
 clusterColours = ['lightblue', 'gray', 'blue', 'darkred', 'lightgreen', 'purple', 'red', 'green', 'lightred', 'white', 'darkblue', 'darkpurple', 'cadetblue', 'orange', 'pink']
 
@@ -39,7 +39,7 @@ def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, step = 
         print(resultDf)
         graphPcaSimilarity(resultDf, f"{max}_{min}")
 
-def applyPCA(data: pd.DataFrame, numComponents):
+def applyPCA(data: pd.DataFrame, numComponents) -> pd.DataFrame:
     pca = PCA(n_components=numComponents)
     X_pca = pca.fit_transform(data)
 
@@ -145,7 +145,7 @@ def mapClusters(labelledData: pd.DataFrame, fileName: str, verbal: bool = True):
     folium.LayerControl(collapsed=False).add_to(foliumMap)
     foliumMap.save(f'folium_maps\\pca_clustering\\{fileName}_map.html')
 
-def haversine(lat1, lon1, lat2, lon2):
+def haversine(lat1, lon1, lat2, lon2) -> float:
     R = 6371  # Earth radius in kilometers
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
@@ -220,20 +220,38 @@ def dbScan2D(data: pd.DataFrame, mapData: pd.DataFrame):
 
     mapClusters(pd.concat([mapData.reset_index(drop=True), pd.Series(labels, name='clusterLabels')], axis=1), f"2d_PCA_{eps}_eps_{minSamples}_samples")
 
-def compareDbScanKmeansLabels(data: pd.DataFrame, mapData: pd.DataFrame):
+def compareDbScanKmeansLabels(data: pd.DataFrame, mapData: pd.DataFrame, showHeatmaps: bool = True):
     mapData, data = combineAndSample(mapData, data, 10000)
 
-    eps, minSamples = 75000, 5
-    dbLabels = DBSCAN(eps=eps, min_samples = minSamples).fit(data).labels_
+    epsList = [50000, 75000, 100000]
+    minSamplesList = [3, 5, 7, 9]
 
-    numClusters = (len(np.unique(dbLabels)))
-    print(f"{numClusters} clusters")
-    kmLabels = KMeans(n_clusters=numClusters, random_state=0).fit(data).labels_
+    summaryDfArs, summaryDfNmi = pd.DataFrame(columns=epsList, index=minSamplesList, dtype=np.float64), pd.DataFrame(columns=epsList, index=minSamplesList, dtype=np.float64)
 
-    print(adjusted_rand_score(dbLabels, kmLabels))
-    print(normalized_mutual_info_score(dbLabels, kmLabels))
+    for eps in epsList:
+        for minSamples in minSamplesList:
+            dbLabels = DBSCAN(eps=eps, min_samples = minSamples).fit(data).labels_
+            kmLabels = KMeans(n_clusters=(len(np.unique(dbLabels)) - 1), random_state=0).fit(data).labels_ # subtract 1 to discount outliers
+            summaryDfArs.loc[minSamples, eps] = adjusted_rand_score(dbLabels, kmLabels)
+            summaryDfNmi.loc[minSamples, eps] = normalized_mutual_info_score(dbLabels, kmLabels)
 
-def combineAndSample(d1: pd.DataFrame, d2: pd.DataFrame, sampleNum: int):
+    print(f"NMI:\n{summaryDfNmi}\n")
+    print(f"ARS:\n{summaryDfArs}\n")
+
+    if showHeatmaps:
+        buildHeatmap(summaryDfNmi, "Normalized Mutual Info Scores")
+        buildHeatmap(summaryDfArs, "Adjusted Random Scores")
+
+def buildHeatmap(data: pd.DataFrame, title: str, xTitle: str = "Espilons", yTitle: str = "Min Samples"):
+    plt.figure()
+    ax = seaborn.heatmap(data)
+    ax.set_title(title)   
+    ax.set_xlabel(xTitle)
+    ax.set_ylabel(yTitle)
+    plt.show()
+    plt.close()
+
+def combineAndSample(d1: pd.DataFrame, d2: pd.DataFrame, sampleNum: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     numCols = d1.shape[1]
     combined = pd.concat([d1, d2], axis=1)
     combined = combined.sample(sampleNum)

@@ -1,6 +1,6 @@
 import pandas as pd, numpy as np, seaborn
 
-def processData(data: pd.DataFrame):
+def processData(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     toMap = data[['fullAddress', 'latitude', 'longitude', 'bedrooms', 'bathrooms', 'floorAreaSqM', 'saleEstimate_currentPrice', 'rentEstimate_currentPrice']] # save labelling information
     data.drop(columns=["fullAddress", "postcode", "country", "outcode", "saleEstimate_valueChange.saleDate", "history_date"], inplace=True) # drop non-info columns
     toCategorical(data, ['bedrooms', 'livingRooms'])
@@ -31,7 +31,7 @@ def dropMissing(data: pd.DataFrame, threshold = 0.15):
     print(f"Dropping {toDrop}")
     data.drop(columns=toDrop, inplace=True)
 
-def encodeCategorical(data: pd.DataFrame):
+def encodeCategorical(data: pd.DataFrame) -> pd.DataFrame:
     categorical = data.dtypes == 'object'
     return pd.get_dummies(data, columns = categorical[categorical].index, drop_first=True)
 
