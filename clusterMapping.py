@@ -39,7 +39,7 @@ def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, step = 
         print(resultDf)
         graphPcaSimilarity(resultDf, f"{max}_{min}")
 
-def applyPCA(data: pd.DataFrame, numComponents) -> pd.DataFrame:
+def applyPCA(data: pd.DataFrame, numComponents: int) -> pd.DataFrame:
     pca = PCA(n_components=numComponents)
     X_pca = pca.fit_transform(data)
 
@@ -77,7 +77,6 @@ def graphPcaSimilarity(pcaData: pd.DataFrame, title: str):
     plt.savefig(f'pca\\{title}.png')
     plt.close()
     
-
 def mapClusters(labelledData: pd.DataFrame, fileName: str, verbal: bool = True):
     meanLat = labelledData['latitude'].mean()
     meanLon = labelledData['longitude'].mean()
@@ -220,27 +219,102 @@ def dbScan2D(data: pd.DataFrame, mapData: pd.DataFrame):
 
     mapClusters(pd.concat([mapData.reset_index(drop=True), pd.Series(labels, name='clusterLabels')], axis=1), f"2d_PCA_{eps}_eps_{minSamples}_samples")
 
-def compareDbScanKmeansLabels(data: pd.DataFrame, mapData: pd.DataFrame, showHeatmaps: bool = True):
-    mapData, data = combineAndSample(mapData, data, 10000)
+def getEps(data: pd.DataFrame, n: int, plot: bool = True) -> float:
+    neigh = NearestNeighbors(n_neighbors=n)
+    nbrs = neigh.fit(data)
+    kDistances = np.sort(nbrs.kneighbors(data)[0][:, n - 1])
 
-    epsList = [50000, 75000, 100000]
-    minSamplesList = [3, 5, 7, 9]
+    nPoints = len(kDistances)
 
-    summaryDfArs, summaryDfNmi = pd.DataFrame(columns=epsList, index=minSamplesList, dtype=np.float64), pd.DataFrame(columns=epsList, index=minSamplesList, dtype=np.float64)
+    # Create line from first to last point
+    allIndices = np.arange(nPoints)
+    firstPoint = np.array([0, kDistances[0]])
+    lastPoint = np.array([nPoints - 1, kDistances[-1]])
+    
+    # Compute distances to the line
+    lineVec = lastPoint - firstPoint
+    lineVecNorm = lineVec / np.linalg.norm(lineVec)
+    
+    vecFromFirst = np.stack([allIndices, kDistances], axis=1) - firstPoint
+    scalarProj = np.dot(vecFromFirst, lineVecNorm)
+    proj = np.outer(scalarProj, lineVecNorm)
+    vecToLine = vecFromFirst - proj
+    distToLine = np.linalg.norm(vecToLine, axis=1)
+    
+    # Elbow point is where distance to line is maximum
+    elbowIdx = np.argmax(distToLine)
+    elbowEps = kDistances[elbowIdx]
 
-    for eps in epsList:
-        for minSamples in minSamplesList:
+    if plot:
+        plt.figure(figsize=(8, 4))
+        plt.plot(kDistances, label=f"{n}-NN Distances")
+        plt.axvline(x=elbowIdx, color='red', linestyle='--', label=f"Elbow @ index {elbowIdx}")
+        plt.axhline(y=elbowEps, color='green', linestyle='--', label=f"eps ≈ {elbowEps:.2f}")
+        plt.scatter(elbowIdx, elbowEps, color='black')
+        plt.xlabel("Sorted data points")
+        plt.ylabel(f"{n}-NN Distance")
+        plt.title("Automatic Elbow Detection")
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
+    return elbowEps
+
+def compareDbScanKmeansLabels(data: pd.DataFrame, showHeatmaps: bool = False, dropOutliers: bool = False, pcaDimension: int = 5, nSamples: int = 10000):
+    data = data.sample(nSamples)
+    if pcaDimension:
+        data = applyPCA(data, pcaDimension)
+
+    minSamplesList = [5, 7, 9]
+    colNum = 5
+
+    scanGrid = buildDbscanParamGrid(data, minSamplesList, nEpsSteps=colNum)
+
+    summaryDfArs, summaryDfNmi = pd.DataFrame(columns=range(colNum), index=minSamplesList, dtype=np.float64), pd.DataFrame(columns=range(colNum), index=minSamplesList, dtype=np.float64)
+    numLabelsDf, epsValuesDf = pd.DataFrame(columns=range(colNum), index=minSamplesList, dtype=np.int64), pd.DataFrame(columns=range(colNum), index=minSamplesList, dtype=np.int64)
+
+    for minSamples, epsList in scanGrid.items():
+        for i, eps in enumerate(epsList):
             dbLabels = DBSCAN(eps=eps, min_samples = minSamples).fit(data).labels_
-            kmLabels = KMeans(n_clusters=(len(np.unique(dbLabels)) - 1), random_state=0).fit(data).labels_ # subtract 1 to discount outliers
-            summaryDfArs.loc[minSamples, eps] = adjusted_rand_score(dbLabels, kmLabels)
-            summaryDfNmi.loc[minSamples, eps] = normalized_mutual_info_score(dbLabels, kmLabels)
+            if dropOutliers:
+                filteredData = pd.concat([data.reset_index(drop=True), pd.Series(dbLabels, name='dbLabels')], axis=1)
+                filteredData = filteredData.loc[filteredData['dbLabels'] != -1].iloc[:, :-1]
+                dbLabels = dbLabels[dbLabels != -1]
+                kmLabels = KMeans(n_clusters=(len(np.unique(dbLabels))), random_state=0).fit(filteredData).labels_
+            else:
+                kmLabels = KMeans(n_clusters=(len(np.unique(dbLabels))), random_state=0).fit(data).labels_
+            
+            numLabelsDf.loc[minSamples, i] = len(np.unique(dbLabels))
+            epsValuesDf.loc[minSamples, i] = eps
+            summaryDfArs.loc[minSamples, i] = adjusted_rand_score(dbLabels, kmLabels)
+            summaryDfNmi.loc[minSamples, i] = normalized_mutual_info_score(dbLabels, kmLabels)
 
-    print(f"NMI:\n{summaryDfNmi}\n")
-    print(f"ARS:\n{summaryDfArs}\n")
+    rowIdx, colIdx = np.unravel_index(summaryDfNmi.values.argmax(), summaryDfNmi.shape)
+
+    hyperParams = (f"{nSamples} Samples / PCA{pcaDimension}" if pcaDimension else "") + (" / Dropped Outliers" if dropOutliers else "")
+    print(hyperParams)
+    print(f"NMI:\n{summaryDfNmi}\nMax of {summaryDfNmi.loc[minSamplesList[rowIdx], colIdx]:2f} at {minSamplesList[rowIdx]}, {colIdx}\n")
+    rowIdx, colIdx = np.unravel_index(summaryDfArs.values.argmax(), summaryDfArs.shape)
+    print(f"ARS:\n{summaryDfArs}\nMax of {summaryDfArs.loc[minSamplesList[rowIdx], colIdx]:2f} at {minSamplesList[rowIdx]}, {colIdx}\n")
+    print(f"Num Labels:\n{numLabelsDf}\n")
+    print(f"Epsilons:\n{epsValuesDf}\n")
 
     if showHeatmaps:
-        buildHeatmap(summaryDfNmi, "Normalized Mutual Info Scores")
-        buildHeatmap(summaryDfArs, "Adjusted Random Scores")
+        buildHeatmap(summaryDfNmi, "Normalized Mutual Info Scores" + hyperParams)
+        buildHeatmap(summaryDfArs, "Adjusted Random Scores" + hyperParams)
+
+def buildDbscanParamGrid(data: pd.DataFrame, minSamplesList: list = [3, 5, 7, 9], epsPadding: float = 0.3, nEpsSteps: int = 5) -> dict:
+    
+    paramGrid = {}
+
+    for minSamples in minSamplesList:
+        base_eps = getEps(data, minSamples, plot=False)
+
+        # Create a range of eps values ±epsPadding (e.g. ±20%)
+        paramGrid[minSamples] = np.linspace(base_eps * (1 - epsPadding), base_eps * (1 + epsPadding), nEpsSteps)
+
+    return paramGrid
 
 def buildHeatmap(data: pd.DataFrame, title: str, xTitle: str = "Espilons", yTitle: str = "Min Samples"):
     plt.figure()
