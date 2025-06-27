@@ -36,12 +36,11 @@ def encodeCategorical(data: pd.DataFrame) -> pd.DataFrame:
     return pd.get_dummies(data, columns = categorical[categorical].index, drop_first=True)
 
 def normalizeNumerical(data: pd.DataFrame, std = True):
-    numerical = data.dtypes == 'float64'
-    toNormalize = data[numerical[numerical].index]
-    if std:
-        data[numerical[numerical].index] = (toNormalize-toNormalize.mean())/toNormalize.std()
-    else:
-        data[numerical[numerical].index] = (toNormalize-toNormalize.min())/(toNormalize.max()-toNormalize.min())
+    numericalCols = data.select_dtypes(include=['float64', 'int64']).columns
+    if std: # Standard score normalization (Z-score)
+        data[numericalCols] = (data[numericalCols] - data[numericalCols].mean()) / data[numericalCols].std()
+    else: # Min-max normalization
+        data[numericalCols] = (data[numericalCols] - data[numericalCols].min()) / (data[numericalCols].max() - data[numericalCols].min())
 
 def printUniqueCategoricals(data):
         for col in data.select_dtypes(include='object').columns:
