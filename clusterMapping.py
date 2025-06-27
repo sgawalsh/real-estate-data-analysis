@@ -262,7 +262,7 @@ def getEps(data: pd.DataFrame, n: int, plot: bool = True) -> float:
     return elbowEps
 
 def compareDbScanKmeansLabels(data: pd.DataFrame, showHeatmaps: bool = False, dropOutliers: bool = False, pcaDimension: int = 5, nSamples: int = 10000):
-    data = data.sample(nSamples)
+    data = data.sample(nSamples, random_state=0)
     if pcaDimension:
         data = applyPCA(data, pcaDimension)
 
@@ -294,9 +294,9 @@ def compareDbScanKmeansLabels(data: pd.DataFrame, showHeatmaps: bool = False, dr
 
     hyperParams = (f"{nSamples} Samples / PCA{pcaDimension}" if pcaDimension else "") + (" / Dropped Outliers" if dropOutliers else "")
     print(hyperParams)
-    print(f"NMI:\n{summaryDfNmi}\nMax of {summaryDfNmi.loc[minSamplesList[rowIdx], colIdx]:2f} at {minSamplesList[rowIdx]}, {colIdx}\n")
+    print(f"NMI:\n{summaryDfNmi}\nMax of {summaryDfNmi.loc[minSamplesList[rowIdx], colIdx]:.2f} at {minSamplesList[rowIdx]}, {colIdx}\n")
     rowIdx, colIdx = np.unravel_index(summaryDfArs.values.argmax(), summaryDfArs.shape)
-    print(f"ARS:\n{summaryDfArs}\nMax of {summaryDfArs.loc[minSamplesList[rowIdx], colIdx]:2f} at {minSamplesList[rowIdx]}, {colIdx}\n")
+    print(f"ARS:\n{summaryDfArs}\nMax of {summaryDfArs.loc[minSamplesList[rowIdx], colIdx]:.2f} at {minSamplesList[rowIdx]}, {colIdx}\n")
     print(f"Num Labels:\n{numLabelsDf}\n")
     print(f"Epsilons:\n{epsValuesDf}\n")
 
