@@ -43,11 +43,11 @@ def normalizeNumerical(data: pd.DataFrame, std = True):
         data[numericalCols] = (data[numericalCols] - data[numericalCols].min()) / (data[numericalCols].max() - data[numericalCols].min())
 
 def printUniqueCategoricals(data):
-        for col in data.select_dtypes(include='object').columns:
-            unique_vals = data[col].unique()
-            print(f"Column: {col}")
-            print(unique_vals)
-            print("-" * 40)
+    for col in data.select_dtypes(include='object').columns:
+        unique_vals = data[col].unique()
+        print(f"Column: {col}")
+        print(unique_vals)
+        print("-" * 40)
 
 def visualizeCorrelations(data: pd.DataFrame, fileName: str = 'correlation_heatmap'):
     seaborn.heatmap(data.select_dtypes(include='float64').corr()).get_figure().savefig(f'{fileName}.png', dpi=400, bbox_inches="tight")
