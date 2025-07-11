@@ -176,8 +176,8 @@ def clusterPriceVsLongBias(clusterDF: pd.DataFrame, fileName: str):
     plt.savefig(f'cluster_graphs\\price_vs_long_bias\\{fileName}.png')
     plt.close()
 
-def dbScan(data: pd.DataFrame, mapData: pd.DataFrame, targetDimension: int = 5, neighbourCount: int = 5, findElbow: bool = True):
-    mapData, data = combineAndSample(mapData, data, 10000)
+def dbScan(data: pd.DataFrame, mapData: pd.DataFrame, targetDimension: int = 5, neighbourCount: int = 5, findElbow: bool = False, autoEps: bool = False, epsPadding: float = .5, nEpsSteps: int = 5, nSamples: int = 10000):
+    mapData, data = combineAndSample(mapData, data, nSamples)
     ogData = data.copy()
     mapData.reset_index(drop=True, inplace=True)
     data = applyPCA(data, targetDimension)
@@ -185,7 +185,12 @@ def dbScan(data: pd.DataFrame, mapData: pd.DataFrame, targetDimension: int = 5, 
     if findElbow:
         findElbowFn(data, neighbourCount)
 
-    epsVals = [10000, 50000, 80000, 90000, 100000, 150000]
+    if autoEps:
+        e = getEps(data, neighbourCount, False)
+        epsVals = np.linspace(e * (1 - epsPadding), e * (1 + epsPadding), nEpsSteps)
+    else:
+        epsVals = [.5, .8, 1, 1.2, 1.5, 2]
+
     for e in epsVals:
         db = DBSCAN(eps=e, min_samples=neighbourCount).fit(data)
         labels = db.labels_
@@ -193,15 +198,16 @@ def dbScan(data: pd.DataFrame, mapData: pd.DataFrame, targetDimension: int = 5, 
         # print(e)
         # print(np.asarray((unique, counts)).T)
 
-        mapClusters(pd.concat([mapData, pd.Series(labels, name='clusterLabels')], axis=1), f"{targetDimension}d_PCA_{e}_eps_{neighbourCount}_samples")
+        mapClusters(pd.concat([mapData, pd.Series(labels, name='clusterLabels')], axis=1), f"{targetDimension}d_PCA_{e}_eps_{neighbourCount}_samples_{nSamples}_pop")
     visualizeCorrelations(pd.concat([ogData, data], axis=1), f"{targetDimension}d_PCA_correlation")
 
-def dbScan2D(data: pd.DataFrame, mapData: pd.DataFrame):
-    mapData, data = combineAndSample(mapData, data, 10000)
+def dbScan2D(data: pd.DataFrame, mapData: pd.DataFrame, nSamples: int = 10000, minSamples: int = 5):
+    if nSamples:
+        mapData, data = combineAndSample(mapData, data, nSamples)
     data = applyPCA(data, 2)
 
-    # findElbowFn(data, 5)
-    eps, minSamples = 25000, 5
+    # findElbowFn(data, minSamples)
+    eps = getEps(data, minSamples, False)
 
     db = DBSCAN(eps=eps, min_samples = minSamples).fit(data)
     labels = db.labels_
@@ -217,7 +223,7 @@ def dbScan2D(data: pd.DataFrame, mapData: pd.DataFrame):
     plt.legend()
     plt.show()
 
-    mapClusters(pd.concat([mapData.reset_index(drop=True), pd.Series(labels, name='clusterLabels')], axis=1), f"2d_PCA_{eps}_eps_{minSamples}_samples")
+    mapClusters(pd.concat([mapData.reset_index(drop=True), pd.Series(labels, name='clusterLabels')], axis=1), f"2d_PCA_{eps}_eps_{minSamples}_samples_{nSamples}_pop")
 
 def getEps(data: pd.DataFrame, n: int, plot: bool = True) -> float:
     neigh = NearestNeighbors(n_neighbors=n)
