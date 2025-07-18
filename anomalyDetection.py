@@ -3,9 +3,8 @@ from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, mean_squared_error, root_mean_squared_error
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
-from typing import Optional
 from xgboost import XGBRegressor
-import pandas as pd, numpy as np, folium, seaborn
+import pandas as pd, numpy as np, seaborn, mapping
 
 #TODO additional underpriced predictions and comparison
 
@@ -119,26 +118,4 @@ def compareModelPreds(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
 def mapUnderpriced(data: pd.DataFrame, y: pd.Series, info: pd.Series, sortColumn: str = 'xgboost', topN = 0.01) -> pd.DataFrame:
     percentDiff = data.subtract(y, axis=0).div(y, axis=0) * 100
     percentDiff = percentDiff.sort_values(by=sortColumn, ascending=False).head(round(len(percentDiff) * topN))
-    mapAnomalies(info.loc[percentDiff.index], 'underpriced', percentDiff[sortColumn])
-
-def mapAnomalies(labelledData: pd.DataFrame, fileName, additionalInfo: Optional[pd.Series] = None):
-
-    mean_lat = labelledData['latitude'].mean()
-    mean_lon = labelledData['longitude'].mean()
-    m = folium.Map(location=[mean_lat, mean_lon], zoom_start=12)
-
-    for i, row in labelledData.iterrows():
-        popupInfo = f"""
-            <b>{row['fullAddress']}</b><br>
-            Bedrooms: {row['bedrooms']}<br>
-            Bathrooms: {row['bathrooms']}<br>
-            Square Footage: {row['floorAreaSqM']}<br>
-            Sales Price Estimate: {row['saleEstimate_currentPrice']}
-            {f"<br>Underpriced %: {round(additionalInfo[i], 2)}" if additionalInfo is not None else ""}
-        """
-        folium.Marker(
-            location=[row['latitude'], row['longitude']],
-            popup=popupInfo,
-            icon=folium.Icon(color='red')
-            ).add_to(m)
-    m.save(f'folium_maps\\anomalies\\{fileName}.html')
+    mapping.mapAnomalies(info.loc[percentDiff.index], 'underpriced', percentDiff[sortColumn])

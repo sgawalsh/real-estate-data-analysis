@@ -3,9 +3,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
 from sklearn.neighbors import NearestNeighbors
 from processing import visualizeCorrelations
-import pandas as pd, numpy as np, matplotlib.pyplot as plt, folium, math, seaborn
-
-clusterColours = ['lightblue', 'gray', 'blue', 'darkred', 'lightgreen', 'purple', 'red', 'green', 'lightred', 'white', 'darkblue', 'darkpurple', 'cadetblue', 'orange', 'pink']
+import pandas as pd, numpy as np, matplotlib.pyplot as plt, folium, math, seaborn, mapping
 
 def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, step = 10, kRange: range = range(1, 16, 2), comparePcaLabels = True):
     
@@ -17,7 +15,7 @@ def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, step = 
             kmeans = KMeans(n_clusters=numClusters, random_state=0).fit(data)
             inertias.append(kmeans.inertia_)
             labels[data.shape[1]].append(kmeans.labels_)
-            mapClusters(pd.concat([mapData, pd.Series(kmeans.labels_, name="clusterLabels")], axis=1), f"{data.shape[1]}_columns_{numClusters}_clusters")
+            createClusterGroupsMap(pd.concat([mapData, pd.Series(kmeans.labels_, name="clusterLabels")], axis=1), f"{data.shape[1]}_columns_{numClusters}_clusters")
 
         graphInertias(kRange, inertias, data.shape[1])
 
@@ -65,7 +63,7 @@ def graphInertias(clusterRange, inertias, numColumns):
 
 def graphPcaSimilarity(pcaData: pd.DataFrame, title: str):
 
-    # Create two subplots and unpack the output array immediately
+    # Create two subplots and unpack the output array
     cols = pcaData.columns
     f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
     f.suptitle(f"Cluster Information Retention Post PCA {title}")
@@ -77,72 +75,46 @@ def graphPcaSimilarity(pcaData: pd.DataFrame, title: str):
     plt.savefig(f'pca\\{title}.png')
     plt.close()
     
-def mapClusters(labelledData: pd.DataFrame, fileName: str, verbal: bool = True):
+def createClusterGroupsMap(labelledData: pd.DataFrame, fileName: str):
     meanLat = labelledData['latitude'].mean()
     meanLon = labelledData['longitude'].mean()
 
-    if verbal:
-        # print(labelledData.head())
-        labels = sorted(labelledData['clusterLabels'].unique())
-        print(f"{len(labels)} Clusters:")
-        labelCounts = labelledData['clusterLabels'].value_counts()
-        summaryDF = pd.DataFrame(columns=['Count', 'Price', 'Sq. Ft.', 'Bedrooms', 'Bathrooms', 'Lat', 'Long', 'Lat Bias', 'Long Bias', 'Spread'])
+    # print(labelledData.head())
+    labels = sorted(labelledData['clusterLabels'].unique())
+    print(f"{len(labels)} Clusters:")
+    labelCounts = labelledData['clusterLabels'].value_counts()
+    summaryDF = pd.DataFrame(columns=['Count', 'Price', 'Sq. Ft.', 'Bedrooms', 'Bathrooms', 'Lat', 'Long', 'Lat Bias', 'Long Bias', 'Spread'])
 
-        clusterGroups = {}
-        for i, label in enumerate(labels):
-            clusterGroups[label] = folium.FeatureGroup(name=f"Cluster {label}")
-            clusterDf = labelledData[labelledData['clusterLabels'] == label]
-            # print(f"Cluster {label} - Count: {labelCounts[label]} Price: {clusterDf['saleEstimate_currentPrice'].mean():,.0f} - Sq. Ft. {clusterDf['floorAreaSqM'].mean():.0f} - Bedrooms: {clusterDf['bedrooms'].mean():.2f} - Bathrooms: {clusterDf['bathrooms'].mean():.2f}")
-            clusterLatMean = clusterDf['latitude'].mean()
-            clusterLonMean = clusterDf['longitude'].mean()
+    clusterGroups = {}
+    for i, label in enumerate(labels):
+        clusterGroups[label] = folium.FeatureGroup(name=f"Cluster {label}")
+        clusterDf = labelledData[labelledData['clusterLabels'] == label]
+        # print(f"Cluster {label} - Count: {labelCounts[label]} Price: {clusterDf['saleEstimate_currentPrice'].mean():,.0f} - Sq. Ft. {clusterDf['floorAreaSqM'].mean():.0f} - Bedrooms: {clusterDf['bedrooms'].mean():.2f} - Bathrooms: {clusterDf['bathrooms'].mean():.2f}")
+        clusterLatMean = clusterDf['latitude'].mean()
+        clusterLonMean = clusterDf['longitude'].mean()
 
-            clusterSpread = clusterDf.apply(
-                lambda row: haversine(meanLat, meanLon, row['latitude'], row['longitude']),
-                axis=1
-            ).std() # std dev cluster spread in km
+        clusterSpread = clusterDf.apply(
+            lambda row: haversine(meanLat, meanLon, row['latitude'], row['longitude']),
+            axis=1
+        ).std() # std dev cluster spread in km
 
-            summaryDF.loc[i] = [
-                format(labelCounts[label], ","),
-                format(round(clusterDf['saleEstimate_currentPrice'].mean()), ","),
-                round(clusterDf['floorAreaSqM'].mean()),
-                round(clusterDf['bedrooms'].mean(), 2),
-                round(clusterDf['bathrooms'].mean(), 2),
-                round(clusterLatMean, 2),
-                round(clusterLonMean, 2),
-                round((clusterLatMean - meanLat) * 111, 4), # latitude to km
-                round((clusterLonMean - meanLon) * 111 * math.cos(math.radians((clusterLatMean + meanLat) / 2)), 4), # longitude to km
-                round(clusterSpread, 2),
-                ]
-        print(summaryDF)
-        clusterCoordsFigure(labelledData, summaryDF, fileName)
-        clusterPriceVsLongBias(summaryDF, fileName)
-    
-    labelledData = labelledData.sample(n=1000)
-    for _, row in labelledData.iterrows():
-        popupInfo = f"""
-            <b>{row['fullAddress']}</b><br>
-            Cluster: {row['clusterLabels']}<br>
-            Bedrooms: {row['bedrooms']}<br>
-            Bathrooms: {row['bathrooms']}<br>
-            Square Footage: {row['floorAreaSqM']}<br>
-            Sales Price Estimate: {row['saleEstimate_currentPrice']}<br>
-        """
-        marker = folium.Marker(
-            location=[row['latitude'], row['longitude']],
-            popup=popupInfo,
-            icon=folium.Icon(color=clusterColours[row['clusterLabels'] % len(clusterColours)])
-            )
-        clusterGroups[row['clusterLabels']].add_child(marker)
+        summaryDF.loc[i] = [
+            format(labelCounts[label], ","),
+            format(round(clusterDf['saleEstimate_currentPrice'].mean()), ","),
+            round(clusterDf['floorAreaSqM'].mean()),
+            round(clusterDf['bedrooms'].mean(), 2),
+            round(clusterDf['bathrooms'].mean(), 2),
+            round(clusterLatMean, 2),
+            round(clusterLonMean, 2),
+            round((clusterLatMean - meanLat) * 111, 4), # latitude to km
+            round((clusterLonMean - meanLon) * 111 * math.cos(math.radians((clusterLatMean + meanLat) / 2)), 4), # longitude to km
+            round(clusterSpread, 2),
+            ]
+    print(summaryDF)
+    clusterCoordsFigure(labelledData, summaryDF, fileName)
+    clusterPriceVsLongBias(summaryDF, fileName)
 
-    
-    foliumMap = folium.Map(location=[meanLat, meanLon], zoom_start=12)
-    # Add all FeatureGroups to the map
-    for group in clusterGroups.values():
-        group.add_to(foliumMap)
-
-    # Add layer control to toggle visibility
-    folium.LayerControl(collapsed=False).add_to(foliumMap)
-    foliumMap.save(f'folium_maps\\pca_clustering\\{fileName}_map.html')
+    mapping.mapClusters(labelledData, fileName, clusterGroups, meanLat, meanLon)
 
 def haversine(lat1, lon1, lat2, lon2) -> float:
     R = 6371  # Earth radius in kilometers
@@ -198,7 +170,7 @@ def dbScan(data: pd.DataFrame, mapData: pd.DataFrame, targetDimension: int = 5, 
         # print(e)
         # print(np.asarray((unique, counts)).T)
 
-        mapClusters(pd.concat([mapData, pd.Series(labels, name='clusterLabels')], axis=1), f"{targetDimension}d_PCA_{e}_eps_{neighbourCount}_samples_{nSamples}_pop")
+        createClusterGroupsMap(pd.concat([mapData, pd.Series(labels, name='clusterLabels')], axis=1), f"{targetDimension}d_PCA_{e}_eps_{neighbourCount}_samples_{nSamples}_pop")
     visualizeCorrelations(pd.concat([ogData, data], axis=1), f"{targetDimension}d_PCA_correlation")
 
 def dbScan2D(data: pd.DataFrame, mapData: pd.DataFrame, nSamples: int = 10000, minSamples: int = 5):
@@ -223,7 +195,7 @@ def dbScan2D(data: pd.DataFrame, mapData: pd.DataFrame, nSamples: int = 10000, m
     plt.legend()
     plt.show()
 
-    mapClusters(pd.concat([mapData.reset_index(drop=True), pd.Series(labels, name='clusterLabels')], axis=1), f"2d_PCA_{eps}_eps_{minSamples}_samples_{nSamples}_pop")
+    createClusterGroupsMap(pd.concat([mapData.reset_index(drop=True), pd.Series(labels, name='clusterLabels')], axis=1), f"2d_PCA_{eps}_eps_{minSamples}_samples_{nSamples}_pop")
 
 def getEps(data: pd.DataFrame, n: int, plot: bool = True) -> float:
     neigh = NearestNeighbors(n_neighbors=n)
