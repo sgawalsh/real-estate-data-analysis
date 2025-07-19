@@ -3,10 +3,9 @@ from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, mean_squared_error, root_mean_squared_error
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
+from folium import FeatureGroup
 from xgboost import XGBRegressor
-import pandas as pd, numpy as np, seaborn, mapping
-
-#TODO additional underpriced predictions and comparison
+import pandas as pd, numpy as np, utils
 
 def isolationForest(data: pd.DataFrame, info: pd.DataFrame, anomalyRate = 0.01):
     iso = IsolationForest(contamination=anomalyRate, random_state=0)
@@ -23,7 +22,6 @@ def getModelPredictions(model, xData: pd.DataFrame, yData: pd.DataFrame, feature
     if hasattr(model, 'feature_importances_'):
         featureDf[str(len(featureDf))] = model.feature_importances_
 
-    # return (predictedPrice - yData) / abs(yData)
     return predictedPrice
 
 def getRmseWeights(y_data: pd.Series, predsDf: pd.DataFrame) -> np.ndarray:
@@ -34,7 +32,7 @@ def getRmseWeights(y_data: pd.Series, predsDf: pd.DataFrame) -> np.ndarray:
     invErrors = 1 / np.array(rmseList)
     return invErrors / invErrors.sum(), rmseList
 
-def addCols(y_data, predsDf, verbal: bool = True, n: int = 5):
+def addCols(y_data: pd.Series, predsDf: pd.DataFrame, verbal: bool = True, n: int = 5):
     predWeights, rmseList = getRmseWeights(y_data, predsDf)
     print(predWeights)
     predsDf['weighted_agg'] = predsDf.dot(predWeights)
@@ -71,13 +69,12 @@ def compareModelPreds(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
         'linear_regression': getModelPredictions(LinearRegression(), x_data, y_data),
         'knn': getModelPredictions(KNeighborsRegressor(), x_data, y_data)
     })
+    utils.buildHeatmap(predsDf.corr(), "Underpriced Predictions Correlation", xTitle="", yTitle="", saveFlag=True, fileName="underpriced_preds_correlation")
     showFeatures(pd.DataFrame(featureDf))
-
-    addCols(y_data, predsDf, verbal=True, n=5)
+    addCols(y_data, predsDf, verbal=True, n=5) # Augment data average / weighted average predictions
     
     scaler = StandardScaler()
     scaledPredsDf = pd.DataFrame(scaler.fit_transform(predsDf), columns=predsDf.columns)
-    seaborn.heatmap(predsDf.corr()).get_figure().savefig(f'underpriced_preds_correlation.png', dpi=400, bbox_inches="tight")
     print(predsDf.var())
     print(predsDf.describe())
     print(scaledPredsDf.var())
@@ -104,18 +101,21 @@ def compareModelPreds(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     stackedPredsDf.index = y_data.index
     return stackedPredsDf, y_data, bestColumn
 
-    # pctDifference = stackedPredsDf.subtract(y_data, axis=0).div(y_data, axis=0) * 100
-    # pctDifference['average'] = pctDifference.mean(axis=1)
-
-    # ars = adjusted_rand_score(knnPreds, xgbPreds)
-    # nmi = normalized_mutual_info_score(knnPreds, xgbPreds)
-
-    # print("Forest/xgb: ", ars, nmi)
-    # ars = adjusted_rand_score(linearRegressionPreds, xgbPreds)
-    # nmi = normalized_mutual_info_score(linearRegressionPreds, xgbPreds)
-    # print("linear/xgb: ", ars, nmi)
-
-def mapUnderpriced(data: pd.DataFrame, y: pd.Series, info: pd.Series, sortColumn: str = 'xgboost', topN = 0.01) -> pd.DataFrame:
+def mapUnderpriced(data: pd.Series, y: pd.Series, info: pd.Series, topN = 0.01, underPricedName : str = 'Underpriced %') -> pd.DataFrame:
     percentDiff = data.subtract(y, axis=0).div(y, axis=0) * 100
-    percentDiff = percentDiff.sort_values(by=sortColumn, ascending=False).head(round(len(percentDiff) * topN))
-    mapping.mapAnomalies(info.loc[percentDiff.index], 'underpriced', percentDiff[sortColumn])
+    utils.plotGaussian(percentDiff)
+    percentDiff = percentDiff.loc[percentDiff > 0].sort_values(ascending=False).head(round(len(percentDiff) * topN)) # Only keep positive underpriced predictions and sort by most underpriced
+    info = info.loc[percentDiff.index]
+    info['Predicted Price'] = round(data, 2)
+    info.loc[percentDiff.index, underPricedName] = round(percentDiff, 2)
+    info['label'] = pd.cut(info[underPricedName], bins=[0, 10, 20, 30, 40, 50, np.inf], labels=['0-10', '10-20', '20-30', '30-40', '40-50', '50+'])
+    labelFeatures = genlabelFeatures(info, 'label')
+    # utils.mapAnomalies(info, 'underpriced', percentDiff)
+    utils.mapLabelledGroups(info, 'underpriced_properties', labelFeatures, info['latitude'].mean(), info['longitude'].mean(), len(info), 'anomalies', 'label')
+
+def genlabelFeatures(data: pd.DataFrame, colName: str) -> dict:
+    labelFeatures = {}
+    for label in enumerate(data[colName].unique()):
+        labelFeatures[label[1]] = FeatureGroup(name=label[1])
+    
+    return labelFeatures

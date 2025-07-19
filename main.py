@@ -9,10 +9,9 @@ def dbScan(data: pd.DataFrame, mapData: pd.DataFrame):
 
 def anomalyDetect(data: pd.DataFrame, info: pd.DataFrame, rawTargets: pd.Series):
     # anomalyDetection.mapAnomalies(anomalyDetection.isolationForest(data, info))
-    # anomalyDetection.mapAnomalies(anomalyDetection.randomForest(data, info))
     preds, y, bestColumn = anomalyDetection.compareModelPreds(data)
     preds, y = processing.descalePreds(preds, y, rawTargets.mean(), rawTargets.std())
-    anomalyDetection.mapUnderpriced(preds, y, info, sortColumn=bestColumn)
+    anomalyDetection.mapUnderpriced(preds[bestColumn], y, info)
 
 if __name__ == "__main__":
     data = pd.read_csv("data/kaggle_london_house_price_data.csv")

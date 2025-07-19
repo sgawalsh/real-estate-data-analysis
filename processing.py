@@ -1,10 +1,11 @@
 import pandas as pd, numpy as np, seaborn
 
 def processData(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    toMap = data[['fullAddress', 'latitude', 'longitude', 'bedrooms', 'bathrooms', 'floorAreaSqM', 'saleEstimate_currentPrice', 'rentEstimate_currentPrice']] # save labelling information
+    dropMissing(data, ['saleEstimate_currentPrice'])
+    toMap = data[['fullAddress', 'latitude', 'longitude', 'bedrooms', 'bathrooms', 'floorAreaSqM', 'saleEstimate_currentPrice']].copy() # save labelling information
     data.drop(columns=["fullAddress", "postcode", "country", "outcode", "saleEstimate_valueChange.saleDate", "history_date"], inplace=True) # drop non-info columns
     toCategorical(data, ['bedrooms', 'livingRooms'])
-    dropMissing(data)
+    dropMissingThreshold(data)# drop columns with more than n% missing values
     fillMissing(data)
     normalizeNumerical(data)
     # visualizeCorrelations(data)
@@ -25,7 +26,10 @@ def fillMissing(data: pd.DataFrame):
         else:
             data[colName] = data[colName].fillna(data[colName].median())
 
-def dropMissing(data: pd.DataFrame, threshold = 0.15):
+def dropMissing(data: pd.DataFrame, columns):
+    data.dropna(subset=columns, inplace=True)
+
+def dropMissingThreshold(data: pd.DataFrame, threshold = 0.15):
     missing = data.isna().sum() / data.shape[0] > threshold
     toDrop = missing[missing].index
     print(f"Dropping {toDrop}")

@@ -3,7 +3,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
 from sklearn.neighbors import NearestNeighbors
 from processing import visualizeCorrelations
-import pandas as pd, numpy as np, matplotlib.pyplot as plt, folium, math, seaborn, mapping
+import pandas as pd, numpy as np, matplotlib.pyplot as plt, folium, math, utils
 
 def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, step = 10, kRange: range = range(1, 16, 2), comparePcaLabels = True):
     
@@ -15,7 +15,7 @@ def pcaCompare(data: pd.DataFrame, mapData: pd.DataFrame, stop: int = 1, step = 
             kmeans = KMeans(n_clusters=numClusters, random_state=0).fit(data)
             inertias.append(kmeans.inertia_)
             labels[data.shape[1]].append(kmeans.labels_)
-            createClusterGroupsMap(pd.concat([mapData, pd.Series(kmeans.labels_, name="clusterLabels")], axis=1), f"{data.shape[1]}_columns_{numClusters}_clusters")
+            createClusterGroupsMap(pd.concat([mapData, pd.Series(kmeans.labels_, name="clusterLabels", index = mapData.index)], axis=1), f"{data.shape[1]}_columns_{numClusters}_clusters")
 
         graphInertias(kRange, inertias, data.shape[1])
 
@@ -114,7 +114,7 @@ def createClusterGroupsMap(labelledData: pd.DataFrame, fileName: str):
     clusterCoordsFigure(labelledData, summaryDF, fileName)
     clusterPriceVsLongBias(summaryDF, fileName)
 
-    mapping.mapClusters(labelledData, fileName, clusterGroups, meanLat, meanLon)
+    utils.mapLabelledGroups(labelledData, fileName, clusterGroups, meanLat, meanLon)
 
 def haversine(lat1, lon1, lat2, lon2) -> float:
     R = 6371  # Earth radius in kilometers
@@ -279,8 +279,8 @@ def compareDbScanKmeansLabels(data: pd.DataFrame, showHeatmaps: bool = False, dr
     print(f"Epsilons:\n{epsValuesDf}\n")
 
     if showHeatmaps:
-        buildHeatmap(summaryDfNmi, "Normalized Mutual Info Scores" + hyperParams)
-        buildHeatmap(summaryDfArs, "Adjusted Random Scores" + hyperParams)
+        utils.buildHeatmap(summaryDfNmi, "Normalized Mutual Info Scores" + hyperParams)
+        utils.buildHeatmap(summaryDfArs, "Adjusted Random Scores" + hyperParams)
 
 def buildDbscanParamGrid(data: pd.DataFrame, minSamplesList: list = [3, 5, 7, 9], epsPadding: float = 0.3, nEpsSteps: int = 5) -> dict:
     
@@ -293,15 +293,6 @@ def buildDbscanParamGrid(data: pd.DataFrame, minSamplesList: list = [3, 5, 7, 9]
         paramGrid[minSamples] = np.linspace(base_eps * (1 - epsPadding), base_eps * (1 + epsPadding), nEpsSteps)
 
     return paramGrid
-
-def buildHeatmap(data: pd.DataFrame, title: str, xTitle: str = "Espilons", yTitle: str = "Min Samples"):
-    plt.figure()
-    ax = seaborn.heatmap(data)
-    ax.set_title(title)   
-    ax.set_xlabel(xTitle)
-    ax.set_ylabel(yTitle)
-    plt.show()
-    plt.close()
 
 def combineAndSample(d1: pd.DataFrame, d2: pd.DataFrame, sampleNum: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     numCols = d1.shape[1]
