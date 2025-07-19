@@ -1,5 +1,4 @@
 import folium, matplotlib.pyplot as plt, numpy as np, pandas as pd, seaborn
-from typing import Optional
 from scipy.stats import norm
 
 clusterColours = ['lightblue', 'gray', 'blue', 'darkred', 'lightgreen', 'purple', 'red', 'green', 'lightred', 'white', 'darkblue', 'darkpurple', 'cadetblue', 'orange', 'pink']

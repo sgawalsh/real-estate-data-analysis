@@ -1,4 +1,4 @@
-import pandas as pd, numpy as np, seaborn
+import pandas as pd, seaborn
 
 def processData(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     dropMissing(data, ['saleEstimate_currentPrice'])

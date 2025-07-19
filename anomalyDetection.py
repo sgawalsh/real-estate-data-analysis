@@ -1,6 +1,6 @@
 from sklearn.ensemble import IsolationForest, RandomForestRegressor
-from sklearn.linear_model import LinearRegression, Ridge
-from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, mean_squared_error, root_mean_squared_error
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import root_mean_squared_error
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
 from folium import FeatureGroup
