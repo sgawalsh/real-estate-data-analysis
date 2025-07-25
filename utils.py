@@ -3,7 +3,7 @@ from scipy.stats import norm
 
 clusterColours = ['lightblue', 'gray', 'blue', 'darkred', 'lightgreen', 'purple', 'red', 'green', 'lightred', 'white', 'darkblue', 'darkpurple', 'cadetblue', 'orange', 'pink']
 
-def mapLabelledGroups(labelledData: pd.DataFrame, fileName: str, clusterGroups: dict, meanLat: float, meanLon: float, nSamples: int = 1000, folderName = 'pca_clustering', labelColumnName = 'clusterLabels'):
+def mapLabelledGroups(labelledData: pd.DataFrame, fileName: str, clusterGroups: dict, meanLat: float, meanLon: float, nSamples: int = 1000, folderName = 'pca_clustering', labelColumnName = 'clusterLabels', saveFlag: bool = True):
     colourMap = {}
     colourI = 0
 
@@ -19,7 +19,7 @@ def mapLabelledGroups(labelledData: pd.DataFrame, fileName: str, clusterGroups: 
     def getAddInfo(items):
         popupInfo = ""
         for l, v in items:
-            popupInfo += f"<br>{l}: {v}"
+            popupInfo += f"<br>{l}: {format(v, ',') if isinstance(v, (int, float)) else v}"
         return popupInfo
     
     addInfo = False
@@ -37,7 +37,7 @@ def mapLabelledGroups(labelledData: pd.DataFrame, fileName: str, clusterGroups: 
             Bedrooms: {row['bedrooms']}<br>
             Bathrooms: {row['bathrooms']}<br>
             Square Footage: {row['floorAreaSqM']}<br>
-            Sales Price Estimate: {row['saleEstimate_currentPrice']}{getAddInfo(row.iloc[defaultEnd:end].items()) if addInfo else ''}
+            Sales Price Estimate: {format(row['saleEstimate_currentPrice'], ',')}{getAddInfo(row.iloc[defaultEnd:end].items()) if addInfo else ''}
         """
 
         marker = folium.Marker(
@@ -55,7 +55,10 @@ def mapLabelledGroups(labelledData: pd.DataFrame, fileName: str, clusterGroups: 
 
     # Add layer control to toggle visibility
     folium.LayerControl(collapsed=False).add_to(foliumMap)
-    foliumMap.save(f'folium_maps\\{folderName}\\{fileName}_map.html')
+    if saveFlag:
+        foliumMap.save(f'folium_maps\\{folderName}\\{fileName}_map.html')
+    else:
+        return foliumMap
 
 def buildHeatmap(data: pd.DataFrame, title: str, xTitle: str = "Espilons", yTitle: str = "Min Samples", saveFlag: bool = False, fileName: str = "heatmap"):
     plt.figure()
@@ -66,10 +69,10 @@ def buildHeatmap(data: pd.DataFrame, title: str, xTitle: str = "Espilons", yTitl
     if saveFlag:
         plt.savefig(f'heatmaps\\{fileName}.png', dpi=400, bbox_inches="tight")
     else:
-        plt.show(bbox_inches="tight")
+        plt.show()
     plt.close()
 
-def plotGaussian(percent_diff):
+def plotGaussian(percent_diff, saveFlag: bool = False, fileName: str = "gaussian_fit", folderName: str = "gaussian_plots"):
     # Compute mean and std
     mu, std = norm.fit(percent_diff)
 
@@ -86,4 +89,7 @@ def plotGaussian(percent_diff):
     plt.title(f"Gaussian Fit: μ = {mu:.2f}, σ = {std:.2f}")
     plt.xlabel("Percent Difference")
     plt.ylabel("Density")
-    plt.show()
+    if saveFlag:
+        plt.savefig(f'{folderName}\\{fileName}.png', dpi=400, bbox_inches="tight")
+    else:
+        plt.show()
