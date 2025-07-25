@@ -35,8 +35,8 @@ def getRmseWeights(y_data: pd.Series, predsDf: pd.DataFrame) -> np.ndarray:
 def addCols(y_data: pd.Series, predsDf: pd.DataFrame, verbal: bool = True, n: int = 5):
     predWeights, rmseList = getRmseWeights(y_data, predsDf)
     print(predWeights)
-    predsDf['weighted_agg'] = predsDf.dot(predWeights)
-    predsDf['agg_price_diff'] = predsDf.mean(axis=1)
+    predsDf['weighted_avg'] = predsDf.dot(predWeights)
+    predsDf['avg_price_diff'] = predsDf.mean(axis=1)
 
     for col in predsDf.iloc[:, -2:]:
         rmseList.append(root_mean_squared_error(y_data, predsDf[col]))
@@ -55,7 +55,7 @@ def showFeatures(featureDf: pd.DataFrame):
     print(featureDf)
 
 def compareModelPreds(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
-    data = data.sample(5000)
+    data = data.sample(10000, random_state=0)
     y_data = data['saleEstimate_currentPrice']
     x_data = data[['latitude', 'longitude', 'floorAreaSqM', 'bedrooms_2.0', 'bedrooms_3.0', 'bedrooms_4.0', 'bedrooms_5.0', 'bedrooms_6.0', 'bedrooms_7.0', 'bedrooms_8.0', 'bedrooms_9.0','bedrooms_Unknown',
              'livingRooms_2.0', 'livingRooms_3.0', 'livingRooms_4.0', 'livingRooms_5.0', 'livingRooms_6.0', 'livingRooms_7.0', 'livingRooms_8.0', 'livingRooms_9.0', 'livingRooms_Unknown',
@@ -101,7 +101,35 @@ def compareModelPreds(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     stackedPredsDf.index = y_data.index
     return stackedPredsDf, y_data, bestColumn
 
-def mapUnderpriced(data: pd.Series, y: pd.Series, info: pd.Series, topN = 0.01, underPricedName : str = 'Underpriced %') -> pd.DataFrame:
+def getModelConsensus(preds: pd.DataFrame, y: pd.Series,  info: pd.DataFrame, bestColumn: str, c1 = 10, c2 = 10, topN = 0.01, underPricedName : str = 'Underpriced %') -> pd.DataFrame:
+    percentDiff = preds.subtract(y, axis=0).div(y, axis=0) * 100
+    utils.plotGaussian(percentDiff[bestColumn])
+    percentDiff = percentDiff[percentDiff[bestColumn] > 0] # Only considering underpriced predictions from best model
+
+    altCols = percentDiff.columns.drop(bestColumn)
+    predWeights, _ = getRmseWeights(pd.Series(np.zeros((len(percentDiff)))), percentDiff[altCols])
+
+    # Calculate consensus and confidence score based on alternative columns
+    percentDiff['alt_col_weighted_avg'] = percentDiff[altCols].dot(predWeights)
+    percentDiff['std'] = percentDiff[altCols].std(axis=1)
+    percentDiff['consensus_score'] = c1 * abs(percentDiff['alt_col_weighted_avg'] - percentDiff[bestColumn]) / percentDiff[bestColumn] + c2 * (percentDiff['std'] / abs(percentDiff['alt_col_weighted_avg']))
+    percentDiff['combined_score'] = percentDiff[bestColumn] - percentDiff['consensus_score']
+    percentDiff.sort_values(by='combined_score', ascending=False, inplace=True)
+    percentDiff['confidence'] = pd.qcut(percentDiff['consensus_score'], 4, labels=['High', 'Medium', 'Low', 'Disagree'])
+
+    # Set additional info for mapping
+    percentDiff = percentDiff.head(round(len(percentDiff) * topN))
+    info = info.loc[percentDiff.index]
+    info['Predicted Price'] = round(preds[bestColumn], 2)
+    info.loc[percentDiff.index, underPricedName] = round(percentDiff[bestColumn], 2)
+    info.loc[percentDiff.index, 'Confidence'] = percentDiff['confidence']
+
+    info['label'] = pd.cut(info[underPricedName], bins=[0, 10, 20, 30, 40, 50, np.inf], labels=['0-10', '10-20', '20-30', '30-40', '40-50', '50+'])
+    labelFeatures = genlabelFeatures(info, 'label')
+
+    utils.mapLabelledGroups(info, 'underpriced_properties', labelFeatures, info['latitude'].mean(), info['longitude'].mean(), len(info), 'anomalies', 'label')
+
+def mapUnderpriced(data: pd.Series, y: pd.Series, info: pd.DataFrame, topN = 0.01, underPricedName : str = 'Underpriced %'): # Using single column to map underpriced properties
     percentDiff = data.subtract(y, axis=0).div(y, axis=0) * 100
     utils.plotGaussian(percentDiff)
     percentDiff = percentDiff.loc[percentDiff > 0].sort_values(ascending=False).head(round(len(percentDiff) * topN)) # Only keep positive underpriced predictions and sort by most underpriced
@@ -110,7 +138,6 @@ def mapUnderpriced(data: pd.Series, y: pd.Series, info: pd.Series, topN = 0.01, 
     info.loc[percentDiff.index, underPricedName] = round(percentDiff, 2)
     info['label'] = pd.cut(info[underPricedName], bins=[0, 10, 20, 30, 40, 50, np.inf], labels=['0-10', '10-20', '20-30', '30-40', '40-50', '50+'])
     labelFeatures = genlabelFeatures(info, 'label')
-    # utils.mapAnomalies(info, 'underpriced', percentDiff)
     utils.mapLabelledGroups(info, 'underpriced_properties', labelFeatures, info['latitude'].mean(), info['longitude'].mean(), len(info), 'anomalies', 'label')
 
 def genlabelFeatures(data: pd.DataFrame, colName: str) -> dict:
