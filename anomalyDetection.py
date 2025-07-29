@@ -3,6 +3,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import root_mean_squared_error
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVR
 from folium import FeatureGroup
 from xgboost import XGBRegressor
 import pandas as pd, numpy as np, utils
@@ -67,7 +68,8 @@ def compareModelPreds(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
         'random_forest': getModelPredictions(RandomForestRegressor(), x_data, y_data, featureDf),
         'xgboost': getModelPredictions(XGBRegressor(n_estimators=100, max_depth=5, learning_rate=0.1, random_state=0), x_data, y_data, featureDf),
         'linear_regression': getModelPredictions(LinearRegression(), x_data, y_data),
-        'knn': getModelPredictions(KNeighborsRegressor(), x_data, y_data)
+        'knn': getModelPredictions(KNeighborsRegressor(), x_data, y_data),
+        'svm': getModelPredictions(SVR(), x_data, y_data)
     })
     utils.buildHeatmap(predsDf.corr(), "Underpriced Predictions Correlation", xTitle="", yTitle="", saveFlag=True, fileName="underpriced_preds_correlation")
     showFeatures(pd.DataFrame(featureDf))
@@ -75,11 +77,8 @@ def compareModelPreds(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     
     scaler = StandardScaler()
     scaledPredsDf = pd.DataFrame(scaler.fit_transform(predsDf), columns=predsDf.columns)
-    print(predsDf.var())
     print(predsDf.describe())
-    print(scaledPredsDf.var())
     print(scaledPredsDf.describe())
-    print(y_data.var())
     print(y_data.describe())
 
     inputDf = predsDf
@@ -89,7 +88,8 @@ def compareModelPreds(data: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
         'random_forest': getModelPredictions(RandomForestRegressor(), inputDf, y_data, stackedFeatureDf),
         'xgboost': getModelPredictions(XGBRegressor(n_estimators=100, max_depth=5, learning_rate=0.1, random_state=0), inputDf, y_data, stackedFeatureDf),
         'linear_regression': getModelPredictions(LinearRegression(), inputDf, y_data),
-        'knn': getModelPredictions(KNeighborsRegressor(), inputDf, y_data)
+        'knn': getModelPredictions(KNeighborsRegressor(), inputDf, y_data),
+        'svm': getModelPredictions(SVR(), inputDf, y_data)
     })
 
     rmseList = addCols(y_data, stackedPredsDf, verbal=True, n=5)
