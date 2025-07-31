@@ -273,8 +273,8 @@ def compareDbScanKmeansLabels(data: pd.DataFrame, showHeatmaps: bool = False, dr
     print(f"Epsilons:\n{epsValuesDf}\n")
 
     if showHeatmaps:
-        utils.buildHeatmap(summaryDfNmi, "Normalized Mutual Info Scores" + hyperParams)
-        utils.buildHeatmap(summaryDfArs, "Adjusted Random Scores" + hyperParams)
+        utils.buildHeatmap(summaryDfNmi, "Normalized Mutual Info Scores" + hyperParams, saveFlag=True, fileName="nmi_scores")
+        utils.buildHeatmap(summaryDfArs, "Adjusted Random Scores" + hyperParams, saveFlag=True, fileName="ars_scores")
 
 def buildDbscanParamGrid(data: pd.DataFrame, minSamplesList: list = [3, 5, 7, 9], epsPadding: float = 0.3, nEpsSteps: int = 5) -> dict:
     

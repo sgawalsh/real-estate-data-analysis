@@ -54,7 +54,7 @@ def printUniqueCategoricals(data):
         print("-" * 40)
 
 def visualizeCorrelations(data: pd.DataFrame, fileName: str = 'correlation_heatmap'):
-    seaborn.heatmap(data.select_dtypes(include='float64').corr()).get_figure().savefig(f'{fileName}.png', dpi=400, bbox_inches="tight")
+    seaborn.heatmap(data.select_dtypes(include='float64').corr()).get_figure().savefig(f'heatmaps/{fileName}.png', dpi=400, bbox_inches="tight")
 
 def descalePreds(preds: pd.DataFrame, y: pd.Series, rawTargets: pd.Series) -> tuple[pd.DataFrame, pd.Series]:
     preds = preds * rawTargets.std() + rawTargets.mean()
