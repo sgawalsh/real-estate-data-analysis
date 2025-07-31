@@ -47,9 +47,6 @@ def applyPCA(data: pd.DataFrame, numComponents: int) -> pd.DataFrame:
 
     pcaDf = pd.DataFrame.from_dict(dfDict)
 
-    # print(pca.explained_variance_ratio_)
-    # print(X_pca)
-
     return pcaDf
 
 def graphInertias(clusterRange, inertias, numColumns):
@@ -148,7 +145,7 @@ def clusterPriceVsLongBias(clusterDF: pd.DataFrame, fileName: str):
     plt.savefig(f'cluster_graphs\\price_vs_long_bias\\{fileName}.png')
     plt.close()
 
-def dbScan(data: pd.DataFrame, mapData: pd.DataFrame, targetDimension: int = 5, neighbourCount: int = 5, findElbow: bool = False, autoEps: bool = False, epsPadding: float = .5, nEpsSteps: int = 5, nSamples: int = 10000):
+def dbScan(data: pd.DataFrame, mapData: pd.DataFrame, targetDimension: int = 5, neighbourCount: int = 5, findElbow: bool = False, autoEps: bool = True, epsPadding: float = .5, nEpsSteps: int = 5, nSamples: int = 10000):
     mapData, data = combineAndSample(mapData, data, nSamples)
     ogData = data.copy()
     mapData.reset_index(drop=True, inplace=True)
@@ -166,11 +163,8 @@ def dbScan(data: pd.DataFrame, mapData: pd.DataFrame, targetDimension: int = 5, 
     for e in epsVals:
         db = DBSCAN(eps=e, min_samples=neighbourCount).fit(data)
         labels = db.labels_
-        # unique, counts = np.unique(labels, return_counts=True)
-        # print(e)
-        # print(np.asarray((unique, counts)).T)
 
-        createClusterGroupsMap(pd.concat([mapData, pd.Series(labels, name='clusterLabels')], axis=1), f"{targetDimension}d_PCA_{e}_eps_{neighbourCount}_samples_{nSamples}_pop")
+        createClusterGroupsMap(pd.concat([mapData, pd.Series(labels, name='clusterLabels')], axis=1), f"{targetDimension}d_PCA_{e:.2f}_eps_{neighbourCount}_samples_{nSamples}_pop")
     visualizeCorrelations(pd.concat([ogData, data], axis=1), f"{targetDimension}d_PCA_correlation")
 
 def dbScan2D(data: pd.DataFrame, mapData: pd.DataFrame, nSamples: int = 10000, minSamples: int = 5):
