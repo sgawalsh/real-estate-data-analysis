@@ -6,9 +6,11 @@ For ease of interpretation, I've added two main notebooks: [Identifying Underpri
 
 The repo also contains several folders with various graphs generated depicting trends within the data. The `cluster_graphs` folder contains graphs of clusters mapped using both DBscan and k-means clustering methods, displaying geographic clustering biases. The folder also contains a set of images depicting how the average price of a cluster changes as it moves latitudinally. The `heatmaps` folder contains images depicting alignment between various data used in the repo such as simlarity between k-means and dbscan clusters, a heatmap of model predictions, or a heatmap of normalized column values. Finally, the `inertias` folder contains a simple graph of how the inertia value changes as cluster count is increased for k-means clustering on this dataset.
 
-# How to Run
+## Running Instructions
 
-This project contains four main functions implementing different data analysis techniques. All of these functions are available in the `main.py` file and allow for some flexibility the range of parameters used.
+The repo includes the environment used, as well as docker support via the `Makefile` or `run.sh`
+
+This project contains four main functions implementing different data analysis techniques. All of these functions are available from the `main.py` file..
 
 - `generateClusters` investigates the relationship between PCA and k-means clustering on this dataset, seeing how clusters are effected as the number of components and number of clusters is adjusted.
 - `anomalyDetect` uses machine learning and consensus-gathering techniques in order to predict underpriced properties from our dataset
