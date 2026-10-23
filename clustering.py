@@ -148,7 +148,7 @@ def clusterPriceVsLongBias(clusterDF: pd.DataFrame, fileName: str):
 def dbScan(data: pd.DataFrame, mapData: pd.DataFrame, targetDimension: int = 5, neighbourCount: int = 5, findElbow: bool = False, autoEps: bool = True, epsPadding: float = .5, nEpsSteps: int = 5, nSamples: int = 10000):
     mapData, data = combineAndSample(mapData, data, nSamples)
     ogData = data.copy()
-    mapData.reset_index(drop=True, inplace=True)
+    mapData = mapData.reset_index(drop=True)
     data = applyPCA(data, targetDimension)
 
     if findElbow:

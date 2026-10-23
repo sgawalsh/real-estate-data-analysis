@@ -36,7 +36,7 @@ def mapLabelledGroups(labelledData: pd.DataFrame, fileName: str, clusterGroups: 
             Cluster: {row[labelColumnName]}<br>
             Bedrooms: {row['bedrooms']}<br>
             Bathrooms: {row['bathrooms']}<br>
-            Square Footage: {row['floorAreaSqM']}<br>
+            m²: {row['floorAreaSqM']}<br>
             Sales Price Estimate: {format(row['saleEstimate_currentPrice'], ',')}{getAddInfo(row.iloc[defaultEnd:end].items()) if addInfo else ''}
         """
 

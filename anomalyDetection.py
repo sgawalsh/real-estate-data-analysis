@@ -114,7 +114,7 @@ def getModelConsensus(preds: pd.DataFrame, y: pd.Series,  info: pd.DataFrame, be
     percentDiff['std'] = percentDiff[altCols].std(axis=1)
     percentDiff['consensus_score'] = c1 * abs(percentDiff['alt_col_weighted_avg'] - percentDiff[bestColumn]) / percentDiff[bestColumn] + c2 * (percentDiff['std'] / abs(percentDiff['alt_col_weighted_avg']))
     percentDiff['combined_score'] = percentDiff[bestColumn] - percentDiff['consensus_score']
-    percentDiff.sort_values(by='combined_score', ascending=False, inplace=True)
+    percentDiff = percentDiff.sort_values(by='combined_score', ascending=False)
     percentDiff['confidence'] = pd.qcut(percentDiff['consensus_score'], 4, labels=['High', 'Medium', 'Low', 'Disagree'])
 
     # Set additional info for mapping
